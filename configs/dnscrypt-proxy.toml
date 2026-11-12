@@ -1,0 +1,24 @@
+listen_addresses = ['0.0.0.0:53']
+server_names = ['adguard-primary', 'adguard-secondary']
+max_clients = 250
+ipv4_servers = true
+ipv6_servers = false
+dnscrypt_servers = true
+doh_servers = false
+timeout = 5000
+keepalive = 30
+cache = true
+cache_size = 4096
+ignore_system_dns = true
+bootstrap_resolvers = []
+netprobe_timeout = 0
+log_level = 2
+
+[blocked_names]
+blocked_names_file = '/etc/dnscrypt/blocked-domains.txt'
+
+# Fixed-IP DNSCrypt stamps from the upstream resolver registry: no plain DNS bootstrap.
+[static.'adguard-primary']
+stamp = 'sdns://AQMAAAAAAAAAETk0LjE0MC4xNC4xNDo1NDQzINErR_JS3PLCu_iZEIbq95zkSV2LFsigxDIuUso_OQhzIjIuZG5zY3J5cHQuZGVmYXVsdC5uczEuYWRndWFyZC5jb20'
+[static.'adguard-secondary']
+stamp = 'sdns://AQMAAAAAAAAAETk0LjE0MC4xNS4xNTo1NDQzINErR_JS3PLCu_iZEIbq95zkSV2LFsigxDIuUso_OQhzIjIuZG5zY3J5cHQuZGVmYXVsdC5uczEuYWRndWFyZC5jb20'

@@ -1,0 +1,10 @@
+/data/
+/work/
+/outputs/
+.env
+*.key
+*.pem
+*.tar*
+*.gpg
+__pycache__/
+*.pyc

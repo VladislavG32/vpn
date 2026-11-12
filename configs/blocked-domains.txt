@@ -1,0 +1,10 @@
+# Local additions; upstream AdGuard DNS also filters advertising and trackers.
+doubleclick.net
+googleadservices.com
+googlesyndication.com
+adservice.google.com
+ads.youtube.com
+advertising.com
+adnxs.com
+adsrvr.org
+scorecardresearch.com

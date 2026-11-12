@@ -1,0 +1,4 @@
+*
+!configs/
+!configs/Dockerfile
+!configs/awg-entrypoint.sh

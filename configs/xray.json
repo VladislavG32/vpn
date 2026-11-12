@@ -1,0 +1,11 @@
+{
+  "log": {"loglevel": "warning", "access": "none"},
+  "dns": {"servers": ["172.30.77.53"], "queryStrategy": "UseIPv4", "disableFallback": true},
+  "inbounds": [],
+  "outbounds": [
+    {"tag": "direct", "protocol": "freedom", "settings": {}, "streamSettings": {"sockopt": {"domainStrategy": "UseIPv4"}}},
+    {"tag": "blocked", "protocol": "blackhole"},
+    {"tag": "dns-out", "protocol": "dns", "settings": {"network": "udp", "address": "172.30.77.53", "port": 53}}
+  ],
+  "routing": {"domainStrategy": "IPOnDemand", "rules": []}
+}
