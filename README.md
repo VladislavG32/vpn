@@ -1,0 +1,130 @@
+# VPN: VLESS REALITY/XHTTP + Vision + AmneziaWG
+
+Ubuntu **22.04/24.04**, Docker Compose **>= 2.33.1**, IPv4, KVM с `/dev/net/tun`.
+Восемь пользователей: `denis`, `vlad`, `liza`, `parents`, `router`, `svyat`, `sveta`, `ruslan`.
+
+## Что обеспечивает проект
+
+- TCP **443**: VLESS + REALITY + XHTTP `stream-one`; TCP **8443**: отдельный VLESS + REALITY + TCP/Vision. Это ручной резервный профиль, а не автоматический fallback. `fp=firefox` задается в клиентских ссылках.
+- AmneziaWG с независимыми ключами/PSK пользователей, случайным внешним UDP-портом, случайными `Jc/Jmin/Jmax`, `S1–S4`, разными `H1–H4`. Профиль использует параметры AWG 2+, нужен совместимый клиент.
+- DNSCrypt до двух AdGuard DNS upstream, локальные блокировки доменов, Xray `blackhole`, перехват AWG DNS/53, запрет DoT/853 и доступа к частным сетям/metadata.
+- Проверка кандидата настоящими Xray/dnscrypt/AWG перед переключением; откат при ошибке запуска. Повторный setup сохраняет ключи, SNI, UDP-порт и адреса пользователей.
+- Перезапуск после сбоя процесса/перезагрузки, healthchecks и systemd-проверка раз в минуту. Все ключи, профили, конфиги и бэкапы находятся в `./data`, права 0700/0600.
+
+## Ограничения, которые нельзя устранить конфигурацией
+
+**Один VPS не является HA-кластером.** При отказе хостинга/IP оба протокола недоступны. Здесь реализованы восстановление сервисов и перенос на другой VPS; для автоматического переключения нужны второй сервер и клиентская логика failover. Переезд требует обновления IP/профилей либо DNS-записи.
+
+**DNS не гарантирует удаление рекламы YouTube:** реклама и видео могут приходить с одних доменов. Блокировка `googlevideo.com` ломает видео, поэтому ее здесь нет. Для YouTube нужен клиентский контент-фильтр или Premium. [Объяснение AdGuard](https://adguard.com/en/support/adguard-mini-android/about/about_the_settings/video_browser/youtube_hard_to_block.html).
+
+Скрытность и обход DPI нельзя гарантировать. Указанные SNI — кандидаты, а не навечно «безопасные домены». Setup случайно перебирает их и проверяет сертификат, TLS 1.3, h2 и признаки Cloudflare; это не доказывает отсутствие CDN. Перед эксплуатацией проверьте выбранный домен из вашего VPS. Источник: [REALITY](https://xtls.github.io/en/config/transports/reality.html).
+
+Всем контейнерам предоставлена общая `internal`-сеть для DNS и отдельная bridge-сеть для выхода в интернет: только `internal` лишила бы VPN интернета. Публикуются лишь 443/tcp, 8443/tcp, случайный UDP; DNS и Docker API не публикуются. SSH хоста остается доступен по вашим правилам.
+
+DNS-защита действует для трафика внутри VPN. Браузерный DoH, локальный DNS клиента, split tunneling и отключенный kill switch способны обойти фильтрацию. Настройте полный туннель, удаленный DNS и kill switch. IPv6 сервером не обслуживается: AWG захватывает `::/0` и отбрасывает его; для Xray включите IPv6-захват в клиенте или отключите IPv6 на клиентском устройстве. Сам хост при установке может использовать обычный DNS.
+
+## Инструкция по развертыванию на новом сервере
+
+1. Купите KVM VPS с публичным IPv4 и Ubuntu 24.04 LTS или 22.04 LTS. Практический минимум для сборки: 2 vCPU, 2–4 GB RAM, 15 GB диска; пропускную способность выбирайте под ваши устройства. Не используйте VPS с уже занятым 443/8443 или чужой Docker-сетью `172.30.77.0/24` / LAN `10.77.0.0/24`.
+2. В панели провайдера разрешите 443/tcp, 8443/tcp; SSH — только со своего IP. UDP-порт откройте после установки. Docker может обходить UFW для опубликованных портов: внешний firewall провайдера — основной периметр ([документация Docker](https://docs.docker.com/engine/network/packet-filtering-firewalls/)). Установщик не меняет SSH и не сбрасывает firewall.
+3. Подключитесь по SSH и выполните от root (после загрузки файлов в GitHub):
+
+```bash
+apt update && apt upgrade -y
+apt install -y git
+cd /opt
+git clone https://github.com/VladislavG32/vpn.git
+cd vpn
+bash install.sh
+```
+
+Для сервера за NAT или постоянного DNS-имени укажите конечный адрес явно:
+
+```bash
+ENDPOINT=vpn.example.org bash install.sh
+```
+
+Без `ENDPOINT` публичный IPv4 определяется через HTTPS api.ipify.org только при первом запуске. Сборка из зафиксированных upstream-коммитов может занять несколько минут. Секреты не попадают в build context. Если нужен reboot после обновления ядра — выполните его, затем проверьте:
+
+```bash
+cd /opt/vpn
+bash manage.sh status
+python3 configs/render.py port   # разрешите этот UDP-порт в firewall VPS
+bash users.sh list
+bash users.sh show vlad
+```
+
+`status` проверяет DNS, порты и выводит даты AWG-handshake; это не проверка обхода блокировок из вашей сети. С компьютера вне VPS импортируйте оба профиля, проверьте внешний IP, DNS и отсутствие IPv6-утечки. После подключения AWG должен появиться свежий handshake.
+
+## Пользователи и импорт
+
+Все восемь пользователей создаются сразу. Произвольные новые имена не принимаются; для расширения измените одинаковые массивы в `setup.sh`, `users.sh`, `configs/render.py` и порядок адресов до первоначальной установки.
+
+```bash
+bash users.sh show denis     # две ссылки VLESS и терминальный QR для TCP
+bash users.sh rotate denis   # новый UUID, ShortID, AWG private/public и PSK
+bash users.sh disable denis  # отозвать доступ и убрать экспорт пользователя
+bash users.sh enable denis  # включить сохраненные ключи
+```
+
+Ротация/отзыв пересоздают сервисы и обрывают текущие сессии всех пользователей; старые профили после ротации больше не работают. Повторный `setup.sh` также кратко перезапускает сервисы, сохраняя ключи. Старые поколения в `data/generations` остаются для восстановления и содержат старые секреты.
+
+Файлы в `data/output/`:
+
+- `NAME-xhttp.txt/png`: ссылка и QR для клиента с REALITY/XHTTP `stream-one`.
+- `NAME-tcp.txt/png`: ссылка и QR TCP/Vision, в том числе для совместимых версий Happ/iOS. Если XHTTP не работает, импортируйте TCP-профиль отдельно.
+- `NAME.conf`, `NAME-awg.png`: готовая конфигурация AmneziaWG и QR с ее текстом. Обычный WireGuard не поддерживает S/H-параметры; используйте AmneziaWG с поддержкой AWG 2+. [Параметры upstream](https://github.com/amnezia-vpn/amneziawg-go#configuration).
+- `NAME.awg-uri.txt`: **внутренний экспорт репозитория** `awg://BASE64URL(conf)`. Это не обещание импорта в Happ/Amnezia: универсального формата `awg://` здесь не предполагается. Рабочий способ импорта — `.conf` или его QR. Формат Amnezia `vpn://` — другой.
+
+Передавайте пользователю только его файлы, например заберите их через `scp` с административной машины. Ссылки и QR являются секретами. Не загружайте `data` в GitHub, публичное облако или онлайн-декодеры QR.
+
+## Бэкап и миграция
+
+```bash
+cd /opt/vpn
+bash manage.sh backup
+```
+
+GPG запросит пароль и создаст зашифрованный архив в `data/backups/`. В нем только активное поколение и ссылка `current`; пароль храните отдельно. Скопируйте архив на свой компьютер и проверьте расшифровку. Таймеры и сборочные образы восстанавливает установщик, они не содержат VPN-ключей.
+
+Быстрый перенос каталога, команды **со своей административной Linux/macOS-машины** (замените OLD_IP и NEW_IP):
+
+```bash
+# На новом VPS сначала создайте checkout, но пока НЕ запускайте install.sh.
+ssh root@NEW_IP 'apt update && apt install -y git && cd /opt && git clone https://github.com/VladislavG32/vpn.git'
+# Приостановите изменения пользователей на время копирования.
+scp -pr root@OLD_IP:/opt/vpn/data ./vpn-data
+scp -pr ./vpn-data root@NEW_IP:/opt/vpn/data
+ssh root@NEW_IP 'cd /opt/vpn && ENDPOINT=NEW_IP bash install.sh'
+```
+
+Либо загрузите зашифрованный архив на новый VPS и восстановите **свой доверенный архив** до install:
+
+```bash
+cd /opt/vpn
+apt install -y gnupg
+install -d -m 700 data
+gpg --decrypt /root/vpn-backup.tar.gpg | tar -xzf - -C data
+ENDPOINT=NEW_IP bash install.sh
+```
+
+После переноса откройте сохраненный UDP-порт, проверьте `bash manage.sh status`, раздайте обновленные `data/output/*`. UUID, REALITY-ключи, AWG-ключи, PSK и SNI сохраняются. Если используете постоянное DNS-имя, задайте его через ENDPOINT и обновите A-запись; учтите TTL и кеш клиента. Для смены адреса без новой установки: `bash manage.sh migrate NEW_IP`.
+
+Держите старый сервер до проверки нового из внешней сети; затем выключите его через панель провайдера. Копирование `data` переносит также старые поколения и бэкапы; архив `backup` переносит только активную конфигурацию.
+
+## Обслуживание и проверка
+
+```bash
+bash manage.sh restart
+bash manage.sh logs xray
+bash manage.sh logs dnscrypt
+systemctl status private-vpn-health.timer
+journalctl -u private-vpn-health.service --since today
+python3 -m unittest discover -s tests -v
+```
+
+Таймер пытается перезапустить unhealthy/exited сервисы раз в минуту; сетевую блокировку, DDoS и отказ VPS он не исправляет. Логи имеют ротацию; access/query-логи выключены, но предупреждения могут содержать адреса.
+
+Исходники Xray 26.11.9, dnscrypt-proxy 2.1.20, AWG Go/tools зафиксированы SHA в `configs/Dockerfile`. Go/Alpine заданы версиями, не digest; пакеты apk/apt также обновляются — сборка не побитово воспроизводима. Обновляйте SHA/базовые образы осознанно после бэкапа и теста на отдельном VPS; `bash setup.sh` пересоберет образ и проверит кандидат. Автообновления протоколов и автоматического reboot нет.
+
+Тесты проверяют конфигурацию и учетные данные; полноценные испытания Ubuntu 22.04/24.04, firewall/NAT, reboot, DNS fail-closed и клиентских приложений нужно выполнить на VPS перед эксплуатацией. Название «production-ready» не заменяет эти проверки.
