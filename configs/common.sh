@@ -4,6 +4,7 @@ umask 077
 [[ $EUID -eq 0 ]] || { echo 'Запустите через sudo bash.' >&2; exit 1; }
 ROOT=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)
 cd "$ROOT"
+source "$ROOT/configs/firewall.sh"
 [[ ! -L data ]] || { echo 'data must be a real directory' >&2; exit 1; }
 install -d -m 700 data data/generations data/backups
 chmod 700 data
@@ -41,6 +42,9 @@ apply_candidate() {
       i=0; until [ -S /run/amneziawg/awgtest.sock ]; do i=$((i+1)); [ "$i" -lt 50 ]; sleep 0.1; done
       awg setconf awgtest "$1"
     ' sh /etc/awg/server.conf
+    local candidate_port
+    candidate_port=$(python3 -c 'import json,sys; print(json.load(open(sys.argv[1]))["port"])' "data/$candidate/state.json")
+    vpn_firewall_apply "$candidate_port" "${PORTAL_ENABLED:-1}"
     ln -sfn "$candidate" data/.current-next
     mv -Tf data/.current-next data/current
     ln -sfn current/output data/output

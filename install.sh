@@ -9,7 +9,7 @@ source /etc/os-release
 export DEBIAN_FRONTEND=noninteractive
 apt-get update
 apt-get upgrade -y
-apt-get install -y ca-certificates curl gnupg git python3 python3-cryptography qrencode dnsutils openssl util-linux
+apt-get install -y ca-certificates curl gnupg git python3 python3-cryptography qrencode dnsutils openssl util-linux iptables
 if ! command -v docker >/dev/null; then
     install -m 0755 -d /etc/apt/keyrings
     curl --fail --silent --show-error --location --proto '=https' --tlsv1.2 https://download.docker.com/linux/ubuntu/gpg -o /etc/apt/keyrings/docker.asc
@@ -36,11 +36,13 @@ printf '[Unit]\nDescription=VPN health recovery\nAfter=docker.service\n[Service]
 printf '[Unit]\nDescription=Check VPN services every minute\n[Timer]\nOnBootSec=120\nOnUnitActiveSec=60\n[Install]\nWantedBy=timers.target\n' > /etc/systemd/system/private-vpn-health.timer
 systemctl daemon-reload
 systemctl enable --now private-vpn-health.timer
+source configs/firewall.sh
+vpn_firewall_install_service "$root_path"
 if [[ -f /var/run/reboot-required ]]; then
     echo 'Kernel/system update requires reboot. Reboot manually, then run: sudo bash manage.sh status'
 fi
 if [[ ${PORTAL_ENABLED:-1} == 1 ]]; then
     if ! bash portal.sh enable; then
-        echo 'VPN установлен. Для веб-страниц откройте 80/tcp и 2087/tcp, затем: bash portal.sh enable' >&2
+        echo 'VPN установлен; веб-страницы пока не включились. Причина и путь к диагностике указаны выше.' >&2
     fi
 fi

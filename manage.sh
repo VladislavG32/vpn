@@ -10,6 +10,9 @@ case ${1:-status} in
         ;;
     restart) compose up -d --force-recreate --wait --wait-timeout 180 ;;
     heal)
+        portal=0
+        if [[ -f data/portal/enabled || -f data/portal/requested ]]; then portal=1; fi
+        vpn_firewall_apply "$AWG_PORT" "$portal"
         # Restart unhealthy/exited services without exposing a Docker socket to containers.
         for service in dnscrypt xray awg portal; do
             id=$(compose ps -a -q "$service")
