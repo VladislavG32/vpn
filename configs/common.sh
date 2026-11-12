@@ -14,7 +14,11 @@ export VPN_GENERATION=current
 if [[ -f data/current/state.json ]]; then
     AWG_PORT=$(python3 configs/render.py port)
 fi
-compose() { docker compose -f "$ROOT/docker-compose.yml" "$@"; }
+compose() {
+    local profile=()
+    if [[ -f data/portal/enabled ]]; then profile=(--profile portal); fi
+    docker compose -f "$ROOT/docker-compose.yml" "${profile[@]}" "$@"
+}
 apply_candidate() {
     local candidate=$1 previous=''
     [[ $candidate == generations/* && $candidate != *..* ]] || return 1

@@ -13,3 +13,4 @@ compose build xray
 candidate=$(python3 configs/render.py candidate "$(IFS=,; echo "${USERS[*]}")" "$(IFS=,; echo "${SNI_DOMAINS[*]}")")
 apply_candidate "$candidate"
 echo "Firewall VPS: TCP 443,8443; UDP $AWG_PORT. Keep SSH restricted to your administration IP."
+python3 configs/render.py links

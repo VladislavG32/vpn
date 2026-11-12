@@ -20,6 +20,8 @@ from cryptography.hazmat.primitives.serialization import Encoding, PublicFormat,
 
 ROOT = Path(__file__).resolve().parent.parent
 DATA = ROOT / 'data'
+sys.path.insert(0, str(ROOT / 'configs'))
+from portal import render_portal
 USERS = ['denis', 'vlad', 'liza', 'parents', 'router', 'svyat', 'sveta', 'ruslan']
 PRIVATE = ['0.0.0.0/8', '10.0.0.0/8', '100.64.0.0/10', '127.0.0.0/8',
            '169.254.0.0/16', '172.16.0.0/12', '192.168.0.0/16', '192.0.0.0/24',
@@ -38,7 +40,7 @@ def user_record(index):
     private, public = keypair()
     return dict(uuid=str(uuid.uuid4()), short_id=secrets.token_hex(8),
                 private=private, public=public, psk=base64.b64encode(secrets.token_bytes(32)).decode(),
-                address=f'10.77.0.{index + 2}', enabled=True)
+                address=f'10.77.0.{index + 2}', enabled=True, portal_token=secrets.token_urlsafe(32))
 
 def endpoint(value):
     if not value or len(value) > 253:
@@ -165,8 +167,31 @@ def render(state, dest):
         # Explicitly a repository-local export URI, NOT a standard client import format.
         (output/f'{name}.awg-uri.txt').write_text('awg://'+base64.urlsafe_b64encode(profile.encode()).decode().rstrip('=')+'\n')
     (dest/'awg.conf').write_text(server)
+    webroot = render_portal(state, dest)
     for path in dest.rglob('*'):
         path.chmod(0o700 if path.is_dir() else 0o600)
+    # Only this subtree is mounted into the unprivileged portal container.
+    webroot.chmod(0o755)
+    for path in webroot.rglob('*'):
+        path.chmod(0o755 if path.is_dir() else 0o644)
+
+def print_links(state, name=None, direct=False):
+    selected = state['users'] if name is None else {name: state['users'].get(name)}
+    if name is not None and (selected[name] is None or not selected[name]['enabled']):
+        raise ValueError('Unknown or disabled user')
+    portal_enabled = (DATA/'portal/enabled').is_file()
+    if portal_enabled and not direct:
+        print('\nЛичные страницы подключения (ссылки содержат ключи доступа):\n')
+        for username, user in selected.items():
+            if user['enabled']:
+                print(f"{username}: https://{state['endpoint']}:2087/p/{user['portal_token']}/")
+    else:
+        for net, title in [('xhttp', 'Основной VLESS / XHTTP'), ('tcp', 'Резервный VLESS / TCP Vision')]:
+            print('\n'+title+':\n')
+            for username, user in selected.items():
+                if user['enabled']:
+                    link=(DATA/f'current/output/{username}-{net}.txt').read_text().strip()
+                    print(f'{username}: {link}')
 
 def main():
     action = sys.argv[1]
@@ -179,6 +204,10 @@ def main():
         if state['schema'] != 1 or list(state['users']) != USERS:
             raise ValueError('Unsupported state or inventory; restore a valid backup')
         state = copy.deepcopy(state)
+        # Upgrade existing installations without changing VPN credentials.
+        for user in state['users'].values():
+            if 'portal_token' not in user:
+                user['portal_token'] = secrets.token_urlsafe(32)
         if os.environ.get('ENDPOINT'):
             state['endpoint'] = endpoint(os.environ['ENDPOINT'])
         operation = sys.argv[4] if len(sys.argv)>4 else 'refresh'
@@ -197,6 +226,13 @@ def main():
         print(dest.relative_to(DATA).as_posix())
     elif action == 'port':
         print(json.loads((DATA/'current/state.json').read_text())['port'])
+    elif action == 'endpoint':
+        print(endpoint(json.loads((DATA/'current/state.json').read_text())['endpoint']))
+    elif action in ('links', 'raw'):
+        if len(sys.argv) > 3:
+            raise ValueError('Usage: render.py links|raw [NAME]')
+        state=json.loads((DATA/'current/state.json').read_text())
+        print_links(state, sys.argv[2] if len(sys.argv)>2 else None, direct=action=='raw')
     elif action == 'show':
         state=json.loads((DATA/'current/state.json').read_text())
         print(f"{'USER':12} {'STATUS':10} {'AWG IP':15} OUTPUT")

@@ -85,6 +85,44 @@ services:
       interval: 30s
       timeout: 5s
       retries: 3
+  portal:
+    image: nginx:1.28-alpine
+    profiles: [portal]
+    entrypoint: ["nginx", "-g", "daemon off;"]
+    user: "101:101"
+    restart: unless-stopped
+    read_only: true
+    cap_drop: [ALL]
+    security_opt: ["no-new-privileges:true"]
+    pids_limit: 64
+    mem_limit: 128m
+    tmpfs: ["/tmp:rw,noexec,nosuid,size=16m,uid=101,gid=101"]
+    ports: ["0.0.0.0:2087:2087/tcp"]
+    volumes:
+      - type: bind
+        source: ./data/${VPN_GENERATION:-current}/webroot
+        target: /srv
+        read_only: true
+        bind: {create_host_path: false}
+      - type: bind
+        source: ./data/portal/tls
+        target: /tls
+        read_only: true
+        bind: {create_host_path: false}
+      - type: bind
+        source: ./configs/portal-nginx.conf
+        target: /etc/nginx/nginx.conf
+        read_only: true
+        bind: {create_host_path: false}
+    networks: [egress]
+    healthcheck:
+      test: ["CMD-SHELL", "wget --no-check-certificate -q -O /dev/null https://127.0.0.1:2087/healthz"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+    logging:
+      driver: json-file
+      options: {max-size: "5m", max-file: "2"}
 networks:
   backend:
     internal: true

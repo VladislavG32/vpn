@@ -1,0 +1,64 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="robots" content="noindex,nofollow,noarchive">
+  <title>VPN — {{NAME}}</title>
+  <style>
+    :root{color-scheme:dark;font-family:system-ui,-apple-system,sans-serif;background:#0e121b;color:#e9effb}
+    *{box-sizing:border-box}body{margin:0}main{max-width:780px;margin:auto;padding:44px 20px 60px}
+    header{margin-bottom:28px}.eyebrow{color:#7de4cd;text-transform:uppercase;letter-spacing:.15em;font-size:12px;font-weight:700}
+    h1{font-size:clamp(30px,6vw,42px);letter-spacing:-.04em;margin:10px 0}h2{font-size:23px;margin:0 0 12px}
+    p,li{line-height:1.65;color:#bdc9dc}section{background:#192131;border:1px solid #2c374d;border-radius:20px;padding:26px;margin:18px 0}
+    .badge{display:inline-block;border:1px solid #395665;border-radius:20px;padding:4px 10px;color:#9fe7d4;font-size:12px;margin-bottom:14px}
+    textarea,input{font:12px/1.6 ui-monospace,monospace;width:100%;resize:vertical;color:#e9effb;background:#0e1420;border:1px solid #3b4963;border-radius:10px;padding:12px}
+    textarea{min-height:116px}label{display:block;margin:16px 0 8px;font-size:13px;color:#bdc9dc}
+    button,.button{font:inherit;display:inline-block;cursor:pointer;background:#91ead3;color:#102b28;border:0;border-radius:10px;padding:11px 16px;text-decoration:none;font-weight:650}
+    .actions{display:flex;gap:12px;flex-wrap:wrap;align-items:center;margin-top:14px}.secondary{background:#28364b;color:#e9effb}
+    a{color:#a8ceff;text-underline-offset:3px}.qr{display:block;width:min(100%,300px);height:auto;background:white;padding:10px;margin:18px auto;border-radius:10px}
+    details{margin-top:20px}summary{cursor:pointer;font-weight:650;line-height:1.6}small{display:block;color:#bdc9dc;line-height:1.65}
+    .status{min-height:1.5em;margin:12px 0 0;color:#9fe7d4}code{overflow-wrap:anywhere}
+    @media(max-width:480px){main{padding:28px 14px}section{padding:20px}button,.button{width:100%;text-align:center}}
+  </style>
+  <script src="portal.js" defer></script>
+</head>
+<body><main>
+  <header><span class="eyebrow">Личное подключение</span><h1>VPN — {{NAME}}</h1>
+    <p>Сервер {{SERVER}}. Эта страница содержит твои ключи доступа. Передавай ее только владельцу профиля.</p>
+  </header>
+  <section>
+    <span class="badge">Телефон и компьютер</span><h2>AmneziaVPN</h2>
+    <p>Установи актуальную AmneziaVPN с поддержкой AWG 2+. Скопируй ключ → «+» → вставь ключ подключения.</p>
+    <label for="amnezia">Ключ подключения</label><textarea id="amnezia" readonly spellcheck="false">{{AMNEZIA}}</textarea>
+    <div class="actions"><button data-copy="amnezia">Скопировать ключ</button><a href="amnezia.vpn" download>Скачать ключ .vpn</a></div>
+    <p><a href="https://amnezia.org/downloads" target="_blank" rel="noreferrer noopener">Скачать AmneziaVPN</a></p>
+  </section>
+  <section>
+    <span class="badge">Основное подключение · 443/tcp</span><h2>VLESS REALITY / XHTTP</h2>
+    <p>Импортируй ссылку или QR в клиент с поддержкой XHTTP <code>stream-one</code>.</p>
+    <img class="qr" src="xhttp.png" alt="QR подключения VLESS XHTTP" width="300" height="300">
+    <label for="xhttp">Ссылка подключения</label><textarea id="xhttp" readonly spellcheck="false">{{XHTTP}}</textarea>
+    <div class="actions"><button data-copy="xhttp">Скопировать VLESS</button><a class="button secondary" href="{{XHTTP}}">Открыть в клиенте</a></div>
+    <details><summary>Резервное подключение TCP / Vision · 8443/tcp</summary>
+      <p>Если XHTTP не поддерживается твоим клиентом, импортируй этот профиль.</p>
+      <img class="qr" src="tcp.png" alt="QR подключения VLESS TCP Vision" width="300" height="300">
+      <label for="tcp">Резервная ссылка</label><textarea id="tcp" readonly spellcheck="false">{{TCP}}</textarea>
+      <div class="actions"><button data-copy="tcp">Скопировать TCP / Vision</button><a href="{{TCP}}">Открыть в клиенте</a></div>
+    </details>
+  </section>
+  <section>
+    <span class="badge">Домашняя сеть</span><h2>Подключение на роутере</h2>
+    <p>Для роутера с поддержкой AmneziaWG 2+ скачай <code>.conf</code> и импортируй в разделе VPN-подключений.</p>
+    <div class="actions"><a class="button" href="amneziawg.conf" download>Скачать конфигурацию .conf</a></div>
+    <details><summary>Показать QR AmneziaWG</summary><img class="qr" src="awg.png" alt="QR конфигурации AmneziaWG" width="300" height="300"></details>
+    <p>Обычный WireGuard не понимает параметры S1–S4 и H1–H4. Если роутер поддерживает только VLESS, используй резервную TCP / Vision ссылку выше. Названия пунктов зависят от прошивки.</p>
+  </section>
+  <section><h2>Адрес подписки</h2>
+    <p>Вставь адрес в Hiddify или другой клиент, поддерживающий подписку со ссылками VLESS. Подписка содержит основной и резервный профили; конфигурация роутера скачивается отдельно.</p>
+    <label for="subscription">Ссылка подписки</label><input id="subscription" value="{{SUBSCRIPTION}}" readonly spellcheck="false">
+    <div class="actions"><button data-copy="subscription">Скопировать адрес подписки</button></div>
+  </section>
+  <p id="copy-status" class="status" role="status" aria-live="polite"></p>
+  <small>При смене ключей администратором эта персональная ссылка перестанет работать. Не публикуй страницу и QR-коды.</small>
+</main></body></html>

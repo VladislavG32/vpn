@@ -39,3 +39,8 @@ systemctl enable --now private-vpn-health.timer
 if [[ -f /var/run/reboot-required ]]; then
     echo 'Kernel/system update requires reboot. Reboot manually, then run: sudo bash manage.sh status'
 fi
+if [[ ${PORTAL_ENABLED:-1} == 1 ]]; then
+    if ! bash portal.sh enable; then
+        echo 'VPN установлен. Для веб-страниц откройте 80/tcp и 2087/tcp, затем: bash portal.sh enable' >&2
+    fi
+fi
