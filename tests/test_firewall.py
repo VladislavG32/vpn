@@ -10,7 +10,7 @@ import unittest
 
 ROOT = Path(__file__).resolve().parents[1]
 BASH = shutil.which('bash')
-if BASH is None and shutil.which('git'):
+if (BASH is None or os.name == 'nt') and shutil.which('git'):
     candidate = Path(shutil.which('git')).parent.parent/'bin/bash.exe'
     if candidate.is_file(): BASH = str(candidate)
 
@@ -54,7 +54,7 @@ for ((i=0;i<VPN_FW_REPEATS;i++)); do
     vpn_firewall_apply "$VPN_FW_PORT" "$VPN_FW_PORTAL"
 done
 '''
-            result=subprocess.run([BASH,'-c',script],cwd=folder,env=env,capture_output=True,text=True)
+            result=subprocess.run([BASH,'-c',script],cwd=folder,env=env,capture_output=True,text=True,encoding='utf-8')
             return result,json.loads(state.read_text()),initial
 
     def test_active_ufw_and_repeated_run_preserve_ssh_and_other_policies(self):

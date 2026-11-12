@@ -9,7 +9,7 @@ source /etc/os-release
 export DEBIAN_FRONTEND=noninteractive
 apt-get update
 apt-get upgrade -y
-apt-get install -y ca-certificates curl gnupg git python3 python3-cryptography qrencode dnsutils openssl util-linux iptables
+apt-get install -y ca-certificates curl gnupg git python3 python3-cryptography qrencode dnsutils openssl util-linux iptables procps kmod
 if ! command -v docker >/dev/null; then
     install -m 0755 -d /etc/apt/keyrings
     curl --fail --silent --show-error --location --proto '=https' --tlsv1.2 https://download.docker.com/linux/ubuntu/gpg -o /etc/apt/keyrings/docker.asc

@@ -23,6 +23,7 @@ DATA = ROOT / 'data'
 sys.path.insert(0, str(ROOT / 'configs'))
 from portal import render_portal
 USERS = ['denis', 'vlad', 'liza', 'parents', 'router', 'svyat', 'sveta', 'ruslan']
+AVOID_SNI = {'gateway.icloud.com'}
 PRIVATE = ['0.0.0.0/8', '10.0.0.0/8', '100.64.0.0/10', '127.0.0.0/8',
            '169.254.0.0/16', '172.16.0.0/12', '192.168.0.0/16', '192.0.0.0/24',
            '198.18.0.0/15', '224.0.0.0/4', '240.0.0.0/4', '::/0']
@@ -57,6 +58,14 @@ def endpoint(value):
 
 def probe_sni(name):
     # TLS validation cannot prove political safety or permanent CDN ownership.
+    normalized = name.lower().rstrip('.')
+    if normalized in AVOID_SNI:
+        raise ValueError('Xray warns against this target; choose another SNI')
+    if normalized.endswith(('.ru', '.cn')):
+        raise ValueError('This deployment excludes .ru and .cn targets')
+    addresses = socket.getaddrinfo(name, 443, type=socket.SOCK_STREAM)
+    if not addresses or any(not ipaddress.ip_address(item[4][0]).is_global for item in addresses):
+        raise ValueError('SNI must resolve only to public addresses')
     ctx = ssl.create_default_context()
     ctx.minimum_version = ssl.TLSVersion.TLSv1_3
     ctx.set_alpn_protocols(['h2'])
@@ -72,7 +81,7 @@ def probe_sni(name):
     if 'cloudflare' in headers.lower() or 'cf-ray:' in headers.lower():
         raise ValueError('Cloudflare response')
 
-def initial(names):
+def choose_sni(names):
     shuffled = names[:]
     secrets.SystemRandom().shuffle(shuffled)
     selected = None
@@ -85,6 +94,10 @@ def initial(names):
             print(f'SNI {name}: rejected ({exc})', file=sys.stderr)
     if selected is None:
         raise ValueError('No usable SNI target. Retry from VPS after checking connectivity.')
+    return selected
+
+def initial(names):
+    selected = choose_sni(names)
     private, public = keypair(True)
     awg_private, awg_public = keypair()
     # Distinct fixed headers are valid AWG 2+ range values with a single element.
@@ -211,7 +224,16 @@ def main():
         if os.environ.get('ENDPOINT'):
             state['endpoint'] = endpoint(os.environ['ENDPOINT'])
         operation = sys.argv[4] if len(sys.argv)>4 else 'refresh'
-        if operation in ('rotate','enable','disable'):
+        if operation == 'optimize':
+            try:
+                probe_sni(state['sni'])
+                print(f"SNI {state['sni']}: проверен, сохранен", file=sys.stderr)
+            except Exception as exc:
+                previous = state['sni']
+                print(f'SNI {previous}: требуется замена ({exc})', file=sys.stderr)
+                state['sni'] = choose_sni([name for name in sys.argv[3].split(',') if name != previous])
+                print(f"SNI: {previous} -> {state['sni']}. Обновите подписки/профили клиентов.", file=sys.stderr)
+        elif operation in ('rotate','enable','disable'):
             name = sys.argv[5]
             if name not in USERS:
                 raise ValueError('Unknown user')

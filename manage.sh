@@ -9,6 +9,18 @@ case ${1:-status} in
         compose exec -T awg awg show awg0 latest-handshakes
         ;;
     restart) compose up -d --force-recreate --wait --wait-timeout 180 ;;
+    diagnose)
+        echo '=== Kernel TCP ==='
+        sysctl net.ipv4.tcp_available_congestion_control net.ipv4.tcp_congestion_control net.ipv4.tcp_mtu_probing
+        echo '=== Container resources ==='
+        compose stats --no-stream
+        echo '=== Xray TCP ==='
+        compose exec -T xray sh -ec 'cat /proc/sys/net/ipv4/tcp_congestion_control; cat /proc/sys/net/ipv4/tcp_mtu_probing'
+        echo '=== AWG engine, traffic and handshakes ==='
+        compose exec -T awg sh -ec 'ip -d link show awg0; awg show awg0 transfer; awg show awg0 latest-handshakes'
+        echo '=== Recent warnings ==='
+        compose logs --tail=20 xray awg
+        ;;
     heal)
         portal=0
         if [[ -f data/portal/enabled || -f data/portal/requested ]]; then portal=1; fi
@@ -48,5 +60,5 @@ case ${1:-status} in
             python3 configs/render.py links
         fi
         ;;
-    *) echo 'Usage: manage.sh [status|restart|logs SERVICE|backup|migrate ENDPOINT|heal]' >&2; exit 1 ;;
+    *) echo 'Usage: manage.sh [status|diagnose|restart|logs SERVICE|backup|migrate ENDPOINT|heal]' >&2; exit 1 ;;
 esac

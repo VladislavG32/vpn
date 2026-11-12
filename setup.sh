@@ -9,6 +9,7 @@ if [[ ! -f data/current/state.json && -z ${ENDPOINT:-} ]]; then
     export ENDPOINT
 fi
 docker info >/dev/null
+vpn_tune_network
 compose build xray
 candidate=$(python3 configs/render.py candidate "$(IFS=,; echo "${USERS[*]}")" "$(IFS=,; echo "${SNI_DOMAINS[*]}")")
 apply_candidate "$candidate"

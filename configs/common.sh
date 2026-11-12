@@ -5,6 +5,7 @@ umask 077
 ROOT=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)
 cd "$ROOT"
 source "$ROOT/configs/firewall.sh"
+source "$ROOT/configs/tuning.sh"
 [[ ! -L data ]] || { echo 'data must be a real directory' >&2; exit 1; }
 install -d -m 700 data data/generations data/backups
 chmod 700 data
@@ -12,6 +13,8 @@ exec 9>data/.lock
 flock -x 9
 export AWG_PORT=51820
 export VPN_GENERATION=current
+export VPN_TCP_CC
+VPN_TCP_CC=$(vpn_tcp_cc)
 if [[ -f data/current/state.json ]]; then
     AWG_PORT=$(python3 configs/render.py port)
 fi

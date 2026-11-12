@@ -42,6 +42,9 @@ services:
       start_period: 45s
   xray:
     <<: *common
+    sysctls:
+      net.ipv4.tcp_congestion_control: "${VPN_TCP_CC:-cubic}"
+      net.ipv4.tcp_mtu_probing: "1"
     volumes:
       - type: bind
         source: ./data/${VPN_GENERATION:-current}/xray.json
