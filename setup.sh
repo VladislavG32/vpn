@@ -2,7 +2,7 @@
 set -Eeuo pipefail
 source "$(dirname -- "${BASH_SOURCE[0]}")/configs/common.sh"
 USERS=(denis vlad liza parents router svyat sveta ruslan)
-SNI_DOMAINS=(www.lovelive-anime.jp gateway.icloud.com swift.com www.yahoo.com)
+load_sni_candidates
 if [[ ! -f data/current/state.json && -z ${ENDPOINT:-} ]]; then
     # Public IP discovery is only an installation convenience; never used for migrations.
     ENDPOINT=$(curl -4fsS --max-time 10 https://api.ipify.org)

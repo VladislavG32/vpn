@@ -52,6 +52,22 @@ class SniOptimizationTests(unittest.TestCase):
         with patch.object(r.socket,'getaddrinfo',return_value=[(2,1,6,'',('127.0.0.1',443))]):
             with self.assertRaises(ValueError): r.probe_sni('example.org')
 
+    def test_cloudflare_address_is_rejected_before_tls(self):
+        for address in ('104.16.1.1','2606:4700::1111'):
+            with patch.object(r.socket,'getaddrinfo',return_value=[(2,1,6,'',(address,443))]), patch.object(r.socket,'create_connection') as tls:
+                with self.assertRaisesRegex(ValueError,'Cloudflare'): r.probe_sni('example.org')
+                tls.assert_not_called()
+
+    def test_shared_candidate_catalog_is_expanded_unique_and_excludes_warned_domains(self):
+        names=[line.split('#',1)[0].strip() for line in (ROOT/'configs/sni-domains.txt').read_text().splitlines()]
+        names=[name for name in names if name]
+        self.assertGreaterEqual(len(names),20)
+        self.assertEqual(len(names),len(set(names)))
+        self.assertFalse(set(names)&r.AVOID_SNI)
+        for name in names:
+            self.assertFalse(name.endswith(('.ru','.cn')))
+            self.assertNotIn('://',name)
+
 MOCK = r'''
 import json,os,sys
 from pathlib import Path

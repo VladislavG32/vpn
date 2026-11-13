@@ -66,6 +66,13 @@ def probe_sni(name):
     addresses = socket.getaddrinfo(name, 443, type=socket.SOCK_STREAM)
     if not addresses or any(not ipaddress.ip_address(item[4][0]).is_global for item in addresses):
         raise ValueError('SNI must resolve only to public addresses')
+    known_cf = [ipaddress.ip_network(line.split('#', 1)[0].strip())
+                for line in (ROOT/'configs/cloudflare-networks.txt').read_text().splitlines()
+                if line.split('#', 1)[0].strip()]
+    for item in addresses:
+        addr = ipaddress.ip_address(item[4][0])
+        if any(addr.version == net.version and addr in net for net in known_cf):
+            raise ValueError('SNI resolves to a known Cloudflare network')
     ctx = ssl.create_default_context()
     ctx.minimum_version = ssl.TLSVersion.TLSv1_3
     ctx.set_alpn_protocols(['h2'])

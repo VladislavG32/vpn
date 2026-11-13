@@ -23,6 +23,10 @@ compose() {
     if [[ -f data/portal/enabled ]]; then profile=(--profile portal); fi
     docker compose -f "$ROOT/docker-compose.yml" "${profile[@]}" "$@"
 }
+load_sni_candidates() {
+    mapfile -t SNI_DOMAINS < <(awk '{ sub(/#.*/, ""); gsub(/^[[:space:]]+|[[:space:]]+$/, ""); if (length) print }' "$ROOT/configs/sni-domains.txt")
+    [[ ${#SNI_DOMAINS[@]} -gt 0 ]] || { echo 'SNI candidate list is empty or missing.' >&2; return 1; }
+}
 apply_candidate() {
     local candidate=$1 previous=''
     [[ $candidate == generations/* && $candidate != *..* ]] || return 1

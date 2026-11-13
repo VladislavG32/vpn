@@ -1,0 +1,31 @@
+# REALITY target candidates; the VPS must validate each selected target.
+# These passed local TLS 1.3/h2 and Cloudflare checks on 2026-11-13.
+# Availability/CDN routing may differ by location and change over time.
+www.lovelive-anime.jp
+www.yahoo.com
+www.sony.com
+www.nvidia.com
+www.samsung.com
+www.asus.com
+www.dell.com
+www.hp.com
+www.lenovo.com
+www.logitech.com
+www.ibm.com
+www.oracle.com
+www.adobe.com
+www.autodesk.com
+www.mozilla.org
+www.kernel.org
+www.python.org
+www.debian.org
+www.ubuntu.com
+www.wikipedia.org
+www.bing.com
+duckduckgo.com
+www.google.com
+dl.google.com
+www.gstatic.com
+www.ebay.com
+www.paypal.com
+www.spotify.com
