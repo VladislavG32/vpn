@@ -6,7 +6,8 @@ vpn_firewall_apply() {
         echo 'Invalid AmneziaWG UDP port' >&2; return 1;
     }
     command -v iptables >/dev/null || { echo 'Install iptables, then retry install.sh.' >&2; return 1; }
-    local tcp_ports=(443 8443)
+    local tcp_ports=(443)
+    if [[ ${VPN_LAYOUT_SCHEMA:-2} == 1 ]]; then tcp_ports+=(8443); fi
     if [[ $portal == 1 || -f data/portal/enabled ]]; then tcp_ports+=(80 2087); fi
     # Persist allowances in UFW when it is already enabled; never enable/reset it.
     if command -v ufw >/dev/null && LC_ALL=C ufw status | grep -q '^Status: active'; then

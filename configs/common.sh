@@ -13,15 +13,19 @@ exec 9>data/.lock
 flock -x 9
 export AWG_PORT=51820
 export VPN_GENERATION=current
+export VPN_LAYOUT_SCHEMA=2
 export VPN_TCP_CC
 VPN_TCP_CC=$(vpn_tcp_cc)
 if [[ -f data/current/state.json ]]; then
     AWG_PORT=$(python3 configs/render.py port)
+    VPN_LAYOUT_SCHEMA=$(python3 configs/render.py schema)
 fi
 compose() {
     local profile=()
     if [[ -f data/portal/enabled ]]; then profile=(--profile portal); fi
-    docker compose -f "$ROOT/docker-compose.yml" "${profile[@]}" "$@"
+    local files=(-f "$ROOT/docker-compose.yml")
+    if [[ $VPN_LAYOUT_SCHEMA == 1 ]]; then files+=(-f "$ROOT/docker-compose.legacy.yml"); fi
+    docker compose "${files[@]}" "${profile[@]}" "$@"
 }
 load_sni_candidates() {
     mapfile -t SNI_DOMAINS < <(awk '{ sub(/#.*/, ""); gsub(/^[[:space:]]+|[[:space:]]+$/, ""); if (length) print }' "$ROOT/configs/sni-domains.txt")
@@ -51,6 +55,7 @@ apply_candidate() {
     ' sh /etc/awg/server.conf
     local candidate_port
     candidate_port=$(python3 -c 'import json,sys; print(json.load(open(sys.argv[1]))["port"])' "data/$candidate/state.json")
+    VPN_LAYOUT_SCHEMA=$(python3 -c 'import json,sys; print(json.load(open(sys.argv[1])).get("schema",1))' "data/$candidate/state.json")
     vpn_firewall_apply "$candidate_port" "${PORTAL_ENABLED:-1}"
     ln -sfn "$candidate" data/.current-next
     mv -Tf data/.current-next data/current
@@ -63,12 +68,18 @@ apply_candidate() {
             ln -sfn "$previous" data/.current-rollback
             mv -Tf data/.current-rollback data/current
             AWG_PORT=$(python3 configs/render.py port)
+            VPN_LAYOUT_SCHEMA=$(python3 configs/render.py schema)
+            vpn_firewall_apply "$AWG_PORT" "${PORTAL_ENABLED:-1}" || true
             compose up -d --force-recreate --wait --wait-timeout 180 || true
         else
             compose down || true
             rm -f data/current data/output
         fi
         return 1
+    fi
+    if [[ -n $previous && $previous != "$candidate" ]]; then
+        ln -sfn "$previous" data/.previous-next
+        mv -Tf data/.previous-next data/previous
     fi
     python3 configs/render.py show
 }

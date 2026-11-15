@@ -12,7 +12,9 @@ case ${1:-links} in
     show)
         [[ $# == 2 ]] || { echo 'users.sh show NAME' >&2; exit 1; }
         python3 configs/render.py show "$2"
-        qrencode -t ANSIUTF8 < "data/output/$2-tcp.txt"
+        qr="data/output/$2-happ.txt"
+        if [[ ! -f $qr ]]; then qr="data/output/$2-xhttp.txt"; fi
+        qrencode -t ANSIUTF8 < "$qr"
         ;;
     rotate|enable|disable)
         [[ $# == 2 ]] || { echo 'users.sh rotate|enable|disable NAME' >&2; exit 1; }

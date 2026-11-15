@@ -22,6 +22,7 @@ ROOT = Path(__file__).resolve().parent.parent
 DATA = ROOT / 'data'
 sys.path.insert(0, str(ROOT / 'configs'))
 from portal import render_portal
+from profiles import compact, transports, awg3_parameters, harden
 USERS = ['denis', 'vlad', 'liza', 'parents', 'router', 'svyat', 'sveta', 'ruslan']
 AVOID_SNI = {'gateway.icloud.com'}
 PRIVATE = ['0.0.0.0/8', '10.0.0.0/8', '100.64.0.0/10', '127.0.0.0/8',
@@ -107,12 +108,7 @@ def initial(names):
     selected = choose_sni(names)
     private, public = keypair(True)
     awg_private, awg_public = keypair()
-    # Distinct fixed headers are valid AWG 2+ range values with a single element.
-    headers = secrets.SystemRandom().sample(range(100000, 2000000000), 4)
-    obfs = dict(Jc=secrets.randbelow(5)+4, Jmin=64+secrets.randbelow(64),
-                Jmax=800+secrets.randbelow(300), S1=32+secrets.randbelow(64),
-                S2=32+secrets.randbelow(64), S3=12+secrets.randbelow(20), S4=12+secrets.randbelow(20))
-    obfs.update({f'H{i+1}': v for i, v in enumerate(headers)})
+    obfs = awg3_parameters()
     port = None
     for _ in range(100):
         candidate = 20000 + secrets.randbelow(40000)
@@ -125,10 +121,12 @@ def initial(names):
             continue
     if port is None:
         raise ValueError('Cannot select an unused UDP port')
-    return dict(schema=1, endpoint=endpoint(os.environ.get('ENDPOINT', '')), sni=selected,
+    users={name:user_record(i) for i,name in enumerate(USERS)}
+    users['router']['enabled']=False
+    return dict(schema=2, fingerprint='chrome', endpoint=endpoint(os.environ.get('ENDPOINT', '')), sni=selected,
                 reality_private=private, reality_public=public, awg_private=awg_private,
                 awg_public=awg_public, port=port, path='/' + secrets.token_hex(12),
-                obfs=obfs, users={name: user_record(i) for i, name in enumerate(USERS)})
+                obfs=obfs, users=users)
 
 def render(state, dest):
     dest.mkdir(mode=0o700, parents=True)
@@ -141,7 +139,7 @@ def render(state, dest):
     shutil.copyfile(ROOT/'configs/dnscrypt-proxy.toml', dest/'dnscrypt-proxy.toml')
     config = json.loads((ROOT/'configs/xray.json').read_text())
     enabled = {n: u for n, u in state['users'].items() if u['enabled']}
-    for port, network in [(443, 'xhttp'), (8443, 'tcp')]:
+    for port, network in transports(state):
         reality = dict(show=False, dest=state['sni']+':443', xver=0,
                        serverNames=[state['sni']], privateKey=state['reality_private'],
                        shortIds=[u['short_id'] for u in enabled.values()])
@@ -167,16 +165,17 @@ def render(state, dest):
     server = f"[Interface]\nPrivateKey = {state['awg_private']}\nListenPort = 51820\n{obfs}\n"
     for name, u in enabled.items():
         server += f"\n# {name}\n[Peer]\nPublicKey = {u['public']}\nPresharedKey = {u['psk']}\nAllowedIPs = {u['address']}/32\n"
+        keepalive = '20-30' if compact(state) else '25'
         profile = (f"[Interface]\nPrivateKey = {u['private']}\nAddress = {u['address']}/32\n"
             f"DNS = 10.77.0.1\nMTU = 1280\n{obfs}\n\n[Peer]\nPublicKey = {state['awg_public']}\n"
             f"PresharedKey = {u['psk']}\nEndpoint = {state['endpoint']}:{state['port']}\n"
-            "AllowedIPs = 0.0.0.0/0, ::/0\nPersistentKeepalive = 25\n")
+            f"AllowedIPs = 0.0.0.0/0, ::/0\nPersistentKeepalive = {keepalive}\n")
         # IPv6 is captured on the client and deliberately has no server egress.
         (output/f'{name}.conf').write_text(profile)
         subprocess.run(['qrencode', '-l', 'L', '-o', str(output/f'{name}-awg.png')], input=profile, text=True, check=True)
-        for port, network in [(443,'xhttp'),(8443,'tcp')]:
+        for port, network in transports(state):
             query = dict(encryption='none', security='reality', sni=state['sni'],
-                fp='firefox', pbk=state['reality_public'], sid=u['short_id'], type=network)
+                fp=state.get('fingerprint','firefox'), pbk=state['reality_public'], sid=u['short_id'], type=network)
             if network == 'xhttp':
                 query.update(path=state['path'], mode='stream-one')
             else:
@@ -184,8 +183,9 @@ def render(state, dest):
             link=f"vless://{u['uuid']}@{state['endpoint']}:{port}?{urlencode(query)}#{quote(name+'-'+network)}"
             (output/f'{name}-{network}.txt').write_text(link+'\n')
             subprocess.run(['qrencode','-l','L','-o',str(output/f'{name}-{network}.png')], input=link, text=True, check=True)
-        # Explicitly a repository-local export URI, NOT a standard client import format.
-        (output/f'{name}.awg-uri.txt').write_text('awg://'+base64.urlsafe_b64encode(profile.encode()).decode().rstrip('=')+'\n')
+        shutil.copyfile(output/f'{name}-xhttp.txt',output/f'{name}-happ.txt')
+        if (output/f'{name}-xhttp.png').exists():
+            shutil.copyfile(output/f'{name}-xhttp.png',output/f'{name}-happ.png')
     (dest/'awg.conf').write_text(server)
     webroot = render_portal(state, dest)
     for path in dest.rglob('*'):
@@ -206,11 +206,14 @@ def print_links(state, name=None, direct=False):
             if user['enabled']:
                 print(f"{username}: https://{state['endpoint']}:2087/p/{user['portal_token']}/")
     else:
-        for net, title in [('xhttp', 'Основной VLESS / XHTTP'), ('tcp', 'Резервный VLESS / TCP Vision')]:
+        choices=[('happ','Happ — REALITY / XHTTP, 443/tcp')]
+        for net, title in choices:
             print('\n'+title+':\n')
             for username, user in selected.items():
                 if user['enabled']:
-                    link=(DATA/f'current/output/{username}-{net}.txt').read_text().strip()
+                    path=DATA/f'current/output/{username}-{net}.txt'
+                    if not path.exists(): path=DATA/f'current/output/{username}-xhttp.txt'
+                    link=path.read_text().strip()
                     print(f'{username}: {link}')
 
 def main():
@@ -221,7 +224,7 @@ def main():
             raise ValueError('User inventory mismatch')
         current = DATA/'current/state.json'
         state = json.loads(current.read_text()) if current.exists() else initial(sys.argv[3].split(','))
-        if state['schema'] != 1 or list(state['users']) != USERS:
+        if state['schema'] not in (1,2) or list(state['users']) != USERS:
             raise ValueError('Unsupported state or inventory; restore a valid backup')
         state = copy.deepcopy(state)
         # Upgrade existing installations without changing VPN credentials.
@@ -231,7 +234,15 @@ def main():
         if os.environ.get('ENDPOINT'):
             state['endpoint'] = endpoint(os.environ['ENDPOINT'])
         operation = sys.argv[4] if len(sys.argv)>4 else 'refresh'
-        if operation == 'optimize':
+        if operation == 'harden':
+            state=harden(state)
+            try:
+                probe_sni(state['sni'])
+            except Exception as exc:
+                previous=state['sni']
+                print(f'SNI {previous}: замена при миграции ({exc})',file=sys.stderr)
+                state['sni']=choose_sni([name for name in sys.argv[3].split(',') if name!=previous])
+        elif operation == 'optimize':
             try:
                 probe_sni(state['sni'])
                 print(f"SNI {state['sni']}: проверен, сохранен", file=sys.stderr)
@@ -255,6 +266,8 @@ def main():
         print(dest.relative_to(DATA).as_posix())
     elif action == 'port':
         print(json.loads((DATA/'current/state.json').read_text())['port'])
+    elif action == 'schema':
+        print(json.loads((DATA/'current/state.json').read_text()).get('schema',1))
     elif action == 'endpoint':
         print(endpoint(json.loads((DATA/'current/state.json').read_text())['endpoint']))
     elif action in ('links', 'raw'):
@@ -271,7 +284,7 @@ def main():
             name=sys.argv[2]
             if name not in USERS or not state['users'][name]['enabled']:
                 raise ValueError('Unknown or disabled user')
-            for network in ('xhttp','tcp'):
+            for _,network in transports(state):
                 print((DATA/f'output/{name}-{network}.txt').read_text().strip())
     else:
         raise ValueError('Unknown action')

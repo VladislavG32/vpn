@@ -1,0 +1,6 @@
+# Compatibility only for schema=1 installations, until harden.sh is run.
+services:
+  xray:
+    ports: ["0.0.0.0:8443:8443/tcp"]
+    healthcheck:
+      test: ["CMD-SHELL", "nc -z 127.0.0.1 443 && nc -z 127.0.0.1 8443"]

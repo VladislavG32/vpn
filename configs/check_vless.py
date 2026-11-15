@@ -186,7 +186,8 @@ def main():
     except Exception as exc:
         print('VPS_DIRECT_HTTPS: FAIL; '+failure_code(exc),flush=True)
     failed=False
-    for transport,port in [('xhttp',443),('tcp',8443)]:
+    choices=[('xhttp',443)] if state.get('schema',1)==2 else [('xhttp',443),('tcp',8443)]
+    for transport,port in choices:
         try:
             inbound=next((item for item in running['inbounds'] if item.get('port')==port),None)
             if inbound is None: raise CheckError('INBOUND_NOT_FOUND')

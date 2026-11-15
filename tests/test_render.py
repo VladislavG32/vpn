@@ -48,8 +48,8 @@ class RenderTests(unittest.TestCase):
                 self.assertIn('PresharedKey = '+user['psk'],(a/'awg.conf').read_text())
                 self.assertIn('AllowedIPs = '+user['address']+'/32',(a/'awg.conf').read_text())
                 self.assertIn('::/0',(a/f'output/{name}.conf').read_text())
-                uri=(a/f'output/{name}.awg-uri.txt').read_text().strip().removeprefix('awg://')
-                self.assertEqual(base64.urlsafe_b64decode(uri+'='*(-len(uri)%4)).decode(),(a/f'output/{name}.conf').read_text())
+                self.assertFalse((a/f'output/{name}.awg-uri.txt').exists())
+                self.assertEqual((a/f'output/{name}-happ.txt').read_text(),link+'\n')
 
     def test_revocation_removes_server_access_and_exports(self):
         state=self.state()

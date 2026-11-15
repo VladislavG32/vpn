@@ -24,9 +24,10 @@ class PortalTests(unittest.TestCase):
             page=dest/'webroot/p'/user['portal_token']
             html=(page/'index.html').read_text(encoding='utf-8')
             self.assertIn('VPN — router',html)
-            self.assertIn('Подключение на роутере',html)
+            self.assertIn('Адрес подписки Happ',html)
+            self.assertNotIn('Подключение на роутере',html)
             self.assertNotIn('{{',html)
-            self.assertIn('amneziawg.conf',html)
+            self.assertIn('amnezia.vpn',html)
             self.assertNotIn('<script src="http',html)
             encoded=(page/'amnezia.vpn').read_text().strip().removeprefix('vpn://')
             packed=base64.urlsafe_b64decode(encoded+'='*(-len(encoded)%4))
@@ -45,7 +46,7 @@ class PortalTests(unittest.TestCase):
             self.assertNotIn(self.state['users']['denis']['private'],all_text)
             self.assertNotIn('userName',profile)
             links=base64.b64decode((page/'subscription.txt').read_text()).decode().splitlines()
-            self.assertEqual(len(links),2)
+            self.assertEqual(len(links),1)
             self.assertTrue(all(line.startswith('vless://'+user['uuid']+'@') for line in links))
 
     def test_disabled_and_rotated_pages_disappear(self):

@@ -29,35 +29,26 @@
   </header>
   <section>
     <span class="badge">Телефон и компьютер</span><h2>AmneziaVPN</h2>
-    <p>Установи актуальную AmneziaVPN с поддержкой AWG 2+. Скопируй ключ → «+» → вставь ключ подключения.</p>
+    <p>AmneziaWG {{AWG_VERSION}}. В обновленной AmneziaVPN нажми «+» → вставь ключ подключения.</p>
     <label for="amnezia">Ключ подключения</label><textarea id="amnezia" readonly spellcheck="false">{{AMNEZIA}}</textarea>
     <div class="actions"><button data-copy="amnezia">Скопировать ключ</button><a href="amnezia.vpn" download>Скачать ключ .vpn</a></div>
     <p><a href="https://amnezia.org/downloads" target="_blank" rel="noreferrer noopener">Скачать AmneziaVPN</a></p>
   </section>
   <section>
-    <span class="badge">Основное подключение · 443/tcp</span><h2>VLESS REALITY / XHTTP</h2>
-    <p>Импортируй ссылку или QR в клиент с поддержкой XHTTP <code>stream-one</code>.</p>
-    <img class="qr" src="xhttp.png" alt="QR подключения VLESS XHTTP" width="300" height="300">
-    <label for="xhttp">Ссылка подключения</label><textarea id="xhttp" readonly spellcheck="false">{{XHTTP}}</textarea>
-    <div class="actions"><button data-copy="xhttp">Скопировать VLESS</button><a class="button secondary" href="{{XHTTP}}">Открыть в клиенте</a></div>
-    <details><summary>Резервное подключение TCP / Vision · 8443/tcp</summary>
-      <p>Если XHTTP не поддерживается твоим клиентом, импортируй этот профиль.</p>
-      <img class="qr" src="tcp.png" alt="QR подключения VLESS TCP Vision" width="300" height="300">
-      <label for="tcp">Резервная ссылка</label><textarea id="tcp" readonly spellcheck="false">{{TCP}}</textarea>
-      <div class="actions"><button data-copy="tcp">Скопировать TCP / Vision</button><a href="{{TCP}}">Открыть в клиенте</a></div>
+    <span class="badge">Альтернативное подключение · 443/tcp</span><h2>Happ</h2>
+    <p>VLESS REALITY / XHTTP. В обновленном Happ добавь адрес подписки — профиль будет получать изменения с этой страницы.</p>
+    <label for="subscription">Адрес подписки Happ</label><input id="subscription" value="{{SUBSCRIPTION}}" readonly spellcheck="false">
+    <div class="actions"><button data-copy="subscription">Скопировать подписку Happ</button></div>
+    <details><summary>Добавить вручную: ссылка и QR</summary>
+      <img class="qr" src="happ.png" alt="QR подключения Happ" width="300" height="300">
+      <label for="happ">Прямая ссылка</label><textarea id="happ" readonly spellcheck="false">{{HAPP}}</textarea>
+      <div class="actions"><button data-copy="happ">Скопировать VLESS</button><a class="button secondary" href="{{HAPP}}">Открыть в клиенте</a></div>
     </details>
   </section>
   <section>
-    <span class="badge">Домашняя сеть</span><h2>Подключение на роутере</h2>
-    <p>Для роутера с поддержкой AmneziaWG 2+ скачай <code>.conf</code> и импортируй в разделе VPN-подключений.</p>
-    <div class="actions"><a class="button" href="amneziawg.conf" download>Скачать конфигурацию .conf</a></div>
-    <details><summary>Показать QR AmneziaWG</summary><img class="qr" src="awg.png" alt="QR конфигурации AmneziaWG" width="300" height="300"></details>
-    <p>Обычный WireGuard не понимает параметры S1–S4 и H1–H4. Если роутер поддерживает только VLESS, используй резервную TCP / Vision ссылку выше. Названия пунктов зависят от прошивки.</p>
-  </section>
-  <section><h2>Адрес подписки</h2>
-    <p>Вставь адрес в Hiddify или другой клиент, поддерживающий подписку со ссылками VLESS. Подписка содержит основной и резервный профили; конфигурация роутера скачивается отдельно.</p>
-    <label for="subscription">Ссылка подписки</label><input id="subscription" value="{{SUBSCRIPTION}}" readonly spellcheck="false">
-    <div class="actions"><button data-copy="subscription">Скопировать адрес подписки</button></div>
+    <h2>Как пользоваться</h2>
+    <p>Включай одно VPN-приложение за раз. Если один способ не подключается, попробуй другой и сравни Wi-Fi с мобильной сетью.</p>
+    <small>Обфускация затрудняет распознавание протокола, но не гарантирует обход блокировки IP или обнаружения VPN.</small>
   </section>
   <p id="copy-status" class="status" role="status" aria-live="polite"></p>
   <small>При смене ключей администратором эта персональная ссылка перестанет работать. Не публикуй страницу и QR-коды.</small>

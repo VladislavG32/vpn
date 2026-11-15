@@ -36,7 +36,7 @@ file.write_text(json.dumps(state)); sys.exit(code)
 
 @unittest.skipUnless(BASH, 'Bash is required')
 class FirewallTests(unittest.TestCase):
-    def run_helper(self, active='active', portal='1', port='53903', repeats=1):
+    def run_helper(self, active='active', portal='1', port='53903', repeats=1, schema='1'):
         with tempfile.TemporaryDirectory() as tmp:
             folder=Path(tmp); state=folder/'state.json'; mock=folder/'mock.py'
             initial=[['-p','tcp','--dport','2222','-j','ACCEPT'],['-j','DROP']]
@@ -45,7 +45,7 @@ class FirewallTests(unittest.TestCase):
             env=dict(os.environ,VPN_FW_STATE=str(state),VPN_FW_UFW=active,
                 VPN_FW_MOCK=str(mock),VPN_FW_PYTHON=sys.executable,
                 VPN_FW_LIBRARY=(ROOT/'configs/firewall.sh').as_posix(),
-                VPN_FW_PORT=port,VPN_FW_PORTAL=portal,VPN_FW_REPEATS=str(repeats))
+                VPN_FW_PORT=port,VPN_FW_PORTAL=portal,VPN_FW_REPEATS=str(repeats),VPN_LAYOUT_SCHEMA=schema)
             script='''set -Eeuo pipefail
 iptables() { "$VPN_FW_PYTHON" "$VPN_FW_MOCK" iptables "$@"; }
 ufw() { "$VPN_FW_PYTHON" "$VPN_FW_MOCK" ufw "$@"; }
@@ -82,5 +82,11 @@ done
         self.assertNotEqual(result.returncode,0)
         self.assertEqual(state['calls'],[])
         self.assertEqual(state['rules'],{'INPUT':initial})
+
+    def test_compact_layout_omits_8443(self):
+        result,state,_=self.run_helper(schema='2')
+        self.assertEqual(result.returncode,0,result.stderr)
+        rules=state['rules']['PRIVATE-VPN-IN']
+        self.assertEqual({rule[3] for rule in rules if '--dport' in rule},{'80','2087','443','53903'})
 
 if __name__=='__main__': unittest.main()

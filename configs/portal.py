@@ -7,6 +7,7 @@ from pathlib import Path
 import shutil
 import struct
 import zlib
+from profiles import compact
 
 HERE = Path(__file__).resolve().parent
 
@@ -17,7 +18,7 @@ def amnezia_key(state, name, profile):
         client_ip=user['address'], client_priv_key=user['private'],
         client_pub_key=user['public'], server_pub_key=state['awg_public'],
         psk_key=user['psk'], clientId=user['public'],
-        allowed_ips=['0.0.0.0/0', '::/0'], persistent_keep_alive='25', mtu='1280', **obfs)
+        allowed_ips=['0.0.0.0/0', '::/0'], persistent_keep_alive='20-30' if compact(state) else '25', mtu='1280', **obfs)
     awg = dict(port=str(state['port']), transport_proto='udp',
         subnet_address='10.77.0.0', subnet_cidr='24', isThirdPartyConfig=True,
         last_config=json.dumps(client, separators=(',', ':')), **obfs)
@@ -45,19 +46,19 @@ def render_portal(state, generation):
         output = generation/'output'
         profile = (output/f'{name}.conf').read_text()
         key = amnezia_key(state, name, profile)
-        links = {net: (output/f'{name}-{net}.txt').read_text().strip() for net in ('xhttp', 'tcp')}
+        link=(output/f'{name}-happ.txt').read_text().strip()
         subscription_url = f"https://{state['endpoint']}:2087/p/{token}/subscription.txt"
         replacements = dict(NAME=name, SERVER=state['endpoint'], AMNEZIA=key,
-            XHTTP=links['xhttp'], TCP=links['tcp'], SUBSCRIPTION=subscription_url)
+            HAPP=link, AWG_VERSION='3.1' if compact(state) else '2 (до миграции)', SUBSCRIPTION=subscription_url)
         page = template
         for key_name, value in replacements.items():
             page = page.replace('{{'+key_name+'}}', escape(value, quote=True))
         (dest/'index.html').write_text(page, encoding='utf-8')
         (dest/'amnezia.vpn').write_text(key+'\n')
         (dest/'subscription.txt').write_text(base64.b64encode(
-            (links['xhttp']+'\n'+links['tcp']+'\n').encode()).decode()+'\n')
+            (link+'\n').encode()).decode()+'\n')
         shutil.copyfile(output/f'{name}.conf', dest/'amneziawg.conf')
-        for net in ('xhttp', 'tcp', 'awg'):
+        for net in ('happ',):
             source = output/f'{name}-{net}.png'
             # The file is created by qrencode in production; test mocks may omit it.
             if source.exists():

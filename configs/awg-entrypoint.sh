@@ -10,8 +10,20 @@ cleanup() {
 trap cleanup EXIT
 trap 'exit 0' TERM INT
 kernel=0
+kernel_config_valid() {
+    awg setconf awg0 /etc/awg/server.conf || return 1
+    if grep -q '^HeaderProtectionKey' /etc/awg/server.conf 2>/dev/null; then
+        # Old kernel modules can accept netlink messages but ignore new fields.
+        # Verify the mandatory AWG 3 settings before selecting the kernel path.
+        for field in HeaderProtectionKey ContentPaddingAddition RandomTrailers DisableCookies; do
+            expected=$(awk -v field="$field" '$1 == field {print $3}' /etc/awg/server.conf)
+            actual=$(awg showconf awg0 | awk -v field="$field" '$1 == field {print $3}')
+            [ "$expected" = "$actual" ] || return 1
+        done
+    fi
+}
 if ip link add awg0 type amneziawg 2>/dev/null; then
-    if awg setconf awg0 /etc/awg/server.conf; then
+    if kernel_config_valid; then
         kernel=1
         echo 'AmneziaWG: existing compatible kernel module selected.'
     else

@@ -5,10 +5,19 @@ case ${1:-status} in
     status)
         compose ps
         compose exec -T dnscrypt sh -ec "dig +time=3 +tries=1 @127.0.0.1 example.com | grep 'status: NOERROR'"
-        compose exec -T xray sh -ec 'nc -z 127.0.0.1 443 && nc -z 127.0.0.1 8443'
+        compose exec -T xray sh -ec 'nc -z 127.0.0.1 443'
         compose exec -T awg awg show awg0 latest-handshakes
         ;;
     restart) compose up -d --force-recreate --wait --wait-timeout 180 ;;
+    rollback)
+        target=$(readlink data/previous || true)
+        [[ $target == generations/* && $target != *..* && -f data/$target/state.json ]] || {
+            echo 'Нет предыдущей конфигурации для отката.' >&2; exit 1;
+        }
+        apply_candidate "$target"
+        python3 configs/render.py links
+        echo 'Откат выполнен. Используйте профили этого поколения.'
+        ;;
     test-vless)
         [[ $# -le 2 ]] || { echo 'Usage: manage.sh test-vless [NAME]' >&2; exit 1; }
         id=$(compose ps -q xray)
@@ -66,5 +75,5 @@ case ${1:-status} in
             python3 configs/render.py links
         fi
         ;;
-    *) echo 'Usage: manage.sh [status|test-vless|diagnose|restart|logs SERVICE|backup|migrate ENDPOINT|heal]' >&2; exit 1 ;;
+    *) echo 'Usage: manage.sh [status|test-vless|diagnose|restart|rollback|logs SERVICE|backup|migrate ENDPOINT|heal]' >&2; exit 1 ;;
 esac
