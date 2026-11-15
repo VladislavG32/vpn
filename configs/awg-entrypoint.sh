@@ -15,7 +15,8 @@ kernel_config_valid() {
     if grep -q '^HeaderProtectionKey' /etc/awg/server.conf 2>/dev/null; then
         # Old kernel modules can accept netlink messages but ignore new fields.
         # Verify the mandatory AWG 3 settings before selecting the kernel path.
-        for field in HeaderProtectionKey ContentPaddingAddition RandomTrailers DisableCookies; do
+        for field in HeaderProtectionKey ContentPaddingAddition RandomTrailers DisableCookies \
+            RekeyAfterTime RekeyTimeout RejectAfterTime KeepaliveTimeout; do
             expected=$(awk -v field="$field" '$1 == field {print $3}' /etc/awg/server.conf)
             actual=$(awg showconf awg0 | awk -v field="$field" '$1 == field {print $3}')
             [ "$expected" = "$actual" ] || return 1

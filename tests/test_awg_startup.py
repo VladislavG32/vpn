@@ -20,6 +20,10 @@ if kind=='ip' and args==['-4','route','show','default']: print('default via 172.
 if kind=='awg' and args[:2]==['setconf','awg0']:
     count=folder/'setconf-count'; n=int(count.read_text())+1 if count.exists() else 1;count.write_text(str(n))
     if mode=='legacy' and n==1: sys.exit(1)
+if kind=='awg' and args==['showconf','awg0'] and mode=='awg3-compatible':
+    for field in ['HeaderProtectionKey','ContentPaddingAddition','RandomTrailers','DisableCookies',
+                  'RekeyAfterTime','RekeyTimeout','RejectAfterTime','KeepaliveTimeout']:
+        print(field+' = expected')
 if kind=='iptables' and 'TCPMSS' in args and os.environ['VPN_AWG_MSS_FAIL']=='1':sys.exit(1)
 '''
 
@@ -42,6 +46,12 @@ amneziawg-go() { "$VPN_AWG_PYTHON" "$VPN_AWG_MOCK" go "$@"; exec sleep 30; }
 [() { if [[ ${1:-} == -S ]]; then return 0; fi; builtin [ "$@"; }
 source "$VPN_AWG_ENTRY"
 '''
+            if mode.startswith('awg3-'):
+                script=script.replace('source "$VPN_AWG_ENTRY"', '''
+grep() { if [[ "$*" == *HeaderProtectionKey* ]]; then return 0; fi; command grep "$@"; }
+awk() { if [[ "${@: -1}" == /etc/awg/server.conf ]]; then echo expected; else command awk "$@"; fi; }
+source "$VPN_AWG_ENTRY"
+''')
             result=subprocess.run([BASH,'-c',script],cwd=folder,env=env,capture_output=True,text=True,encoding='utf-8',timeout=15)
             self.assertEqual(result.returncode,77,result.stdout+result.stderr)
             calls=[json.loads(line) for line in (folder/'calls.jsonl').read_text().splitlines()]
@@ -63,5 +73,15 @@ source "$VPN_AWG_ENTRY"
         result,calls=self.startup('absent',mss_fail=True)
         self.assertTrue(any(call[0]=='go' for call in calls))
         self.assertIn('TCPMSS extension unavailable',result.stderr)
+
+    def test_kernel_silently_ignoring_awg3_fields_falls_back(self):
+        _,calls=self.startup('awg3-ignored')
+        self.assertTrue(any(call[0]=='go' for call in calls))
+        self.assertTrue(any(call[:3]==['awg','showconf','awg0'] for call in calls))
+
+    def test_awg3_kernel_requires_readback_of_all_advanced_fields(self):
+        _,calls=self.startup('awg3-compatible')
+        self.assertFalse(any(call[0]=='go' for call in calls))
+        self.assertEqual(sum(call[:3]==['awg','showconf','awg0'] for call in calls),8)
 
 if __name__=='__main__':unittest.main()

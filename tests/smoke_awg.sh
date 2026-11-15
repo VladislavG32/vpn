@@ -15,6 +15,9 @@ cleanup() {
 }
 trap cleanup EXIT
 python3 tests/smoke_fixture.py "$fixture/gen"
+# These are disposable CI keys owned by the runner UID. Containers drop DAC
+# override and must be able to read the individual read-only bind mounts.
+chmod 644 "$fixture/gen/xray.json" "$fixture/gen/awg.conf" "$fixture/gen/client.conf"
 image=private-vpn:2026-11-12
 docker build -f configs/Dockerfile -t "$image" .
 docker run --rm --network none --read-only --cap-drop ALL \
