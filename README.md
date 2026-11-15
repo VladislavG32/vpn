@@ -106,8 +106,9 @@ DNScrypt-proxy шифрует запросы к закрепленным AdGuard
 ```bash
 cd /opt/vpn
 bash manage.sh backup   # зашифрованный GPG-архив, запросит пароль
+systemctl stop private-vpn-health.timer private-vpn-portal-renew.timer
 docker compose --profile portal down
-scp -r /opt/vpn/data root@NEW_IP:/opt/vpn-data
+tar -C /opt/vpn -czf - data | ssh root@NEW_IP 'umask 077; mkdir -p /opt/vpn-transfer; tar -xzf - -C /opt/vpn-transfer'
 ```
 
 Для legacy-схемы при остановке добавьте `-f docker-compose.yml -f docker-compose.legacy.yml` перед `--profile`. Старый VPS сохраните до проверки нового.
@@ -118,12 +119,12 @@ scp -r /opt/vpn/data root@NEW_IP:/opt/vpn-data
 apt-get update && apt-get install -y git
 mkdir -p /opt && cd /opt
 git clone https://github.com/VladislavG32/vpn.git
-mv /opt/vpn-data /opt/vpn/data
+mv /opt/vpn-transfer/data /opt/vpn/data
 cd /opt/vpn
 ENDPOINT=NEW_IP bash install.sh
 ```
 
-Сертификат перевыпустится, новый адрес попадет в профили. Ключи, параметры AWG, SNI и токены сохраняются. Откройте страницы по новому IP, переимпортируйте Amnezia и замените адрес подписки Happ. При постоянном DNS-имени задайте его как ENDPOINT и обновите A-запись с учетом TTL. Смена адреса без полной установки: `bash manage.sh migrate NEW_IP`.
+Передача через tar/SSH сохраняет относительные симлинки current/output/previous; scp -r для каталога data не используйте. Сертификат перевыпустится, новый адрес попадет в профили. Ключи, параметры AWG, SNI и токены сохраняются. Откройте страницы по новому IP, переимпортируйте Amnezia и замените адрес подписки Happ. При постоянном DNS-имени задайте его как ENDPOINT и обновите A-запись с учетом TTL. Смена адреса без полной установки: `bash manage.sh migrate NEW_IP`.
 
 Бэкап включает активное поколение и состояние портала, но не историю. Восстановление: расшифруйте архив в **пустой** data, запустите установщик с новым ENDPOINT. Полная копия data сохраняет также историю и архивы. Не добавляйте data в Git даже для приватного репозитория.
 

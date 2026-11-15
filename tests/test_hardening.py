@@ -1,10 +1,12 @@
 """Migration preserves identity while changing both ends of AWG together."""
 import base64
 import json
+import io
 from pathlib import Path
 import tempfile
 import unittest
 import zlib
+from unittest.mock import patch
 import test_render
 from profiles import harden
 
@@ -12,6 +14,28 @@ r=test_render.r
 
 class HardeningTests(unittest.TestCase):
     def setUp(self): self.helper=test_render.RenderTests()
+
+    def test_new_install_uses_compact_layout_and_disables_router(self):
+        with patch.object(r,'choose_sni',return_value='www.yahoo.com'), patch.dict(r.os.environ,{'ENDPOINT':'vpn.example.org'}):
+            state=r.initial(['www.yahoo.com'])
+        self.assertEqual(state['schema'],2)
+        self.assertEqual(state['fingerprint'],'chrome')
+        self.assertEqual(sum(user['enabled'] for user in state['users'].values()),7)
+        self.assertFalse(state['users']['router']['enabled'])
+
+    def test_candidate_migration_leaves_active_state_untouched(self):
+        old=self.helper.state()
+        with tempfile.TemporaryDirectory() as tmp:
+            data=Path(tmp); (data/'current').mkdir()
+            current=data/'current/state.json'; current.write_text(json.dumps(old))
+            before=current.read_bytes(); output=io.StringIO()
+            args=['render.py','candidate',','.join(r.USERS),'www.yahoo.com','harden']
+            with patch.object(r,'DATA',data), patch.object(r.sys,'argv',args), patch.object(r,'probe_sni'), patch.object(r.subprocess,'run'), patch.object(r.sys,'stdout',output), patch.dict(r.os.environ,{},clear=True):
+                r.main()
+            self.assertEqual(current.read_bytes(),before)
+            new=json.loads((data/output.getvalue().strip()/'state.json').read_text())
+            self.assertEqual(new['schema'],2)
+            self.assertEqual(new['users']['vlad'],old['users']['vlad'])
 
     def test_migration_preserves_keys_and_is_idempotent(self):
         old=self.helper.state(); new=harden(old)
