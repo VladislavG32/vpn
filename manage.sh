@@ -9,6 +9,12 @@ case ${1:-status} in
         compose exec -T awg awg show awg0 latest-handshakes
         ;;
     restart) compose up -d --force-recreate --wait --wait-timeout 180 ;;
+    test-vless)
+        [[ $# -le 2 ]] || { echo 'Usage: manage.sh test-vless [NAME]' >&2; exit 1; }
+        id=$(compose ps -q xray)
+        [[ -n $id ]] || { echo 'Xray container is not running.' >&2; exit 1; }
+        python3 configs/check_vless.py "$id" "${@:2}"
+        ;;
     diagnose)
         echo '=== Kernel TCP ==='
         sysctl net.ipv4.tcp_available_congestion_control net.ipv4.tcp_congestion_control net.ipv4.tcp_mtu_probing
@@ -60,5 +66,5 @@ case ${1:-status} in
             python3 configs/render.py links
         fi
         ;;
-    *) echo 'Usage: manage.sh [status|diagnose|restart|logs SERVICE|backup|migrate ENDPOINT|heal]' >&2; exit 1 ;;
+    *) echo 'Usage: manage.sh [status|test-vless|diagnose|restart|logs SERVICE|backup|migrate ENDPOINT|heal]' >&2; exit 1 ;;
 esac
